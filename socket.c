@@ -42,16 +42,17 @@ int main(void) {
   char instr[8];
   //PF_INET es una familia de protocolos (macros) ipv4, x25, etc
   //SOCK_STREAM define que vamos a trabajar con un socket de flujo
+  //0 es el id del protocolo IPv4
   if ((sockfd = socket(PF_INET, SOCK_STREAM, 0)) == -1)
     perror("Error al crear el socket");
 
   if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
     perror("Error al agregar la opcion SO_REUSEADDR en setsockopt");
   
-  //Establece la familia correspondiente al protocolo
-  host_addr.sin_family = AF_INET;     // 
-  //big endian 
-  host_addr.sin_port = htons(PORT);   //
+  //Establece la familia correspondiente al protocolo IPv4
+  host_addr.sin_family = AF_INET;
+  //big endian. Puerto para la conexion
+  host_addr.sin_port = htons(PORT);
   //Macro o constante que define que es nuestra ip
   host_addr.sin_addr.s_addr = INADDR_ANY; // Asigno mi IPP
   memset(&(host_addr.sin_zero), '\0', 8); // El resto de la estructura en 0s
@@ -59,12 +60,13 @@ int main(void) {
   if (bind(sockfd, (struct sockaddr *)&host_addr, sizeof(struct sockaddr)) == -1)
     perror("Error haciendo el bind");
 
-	//
+	//Maximo de conexiones pendientes
   if (listen(sockfd, 5) == -1)
     perror("Error al escuchar en el socket");
 
   while(1) {    // Accept loop
     sin_size = sizeof(struct sockaddr_in);
+    //Se establece la conexion con el cliente
     new_sockfd = accept(sockfd, (struct sockaddr *)&client_addr, &sin_size);
     if(new_sockfd == -1)
       perror("Error al aceptar la conexion");
