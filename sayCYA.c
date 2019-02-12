@@ -107,7 +107,7 @@ int encryptFile(char *file){
 		printf("Tamano del archivo %s: %ld bytes\n", file, len);
 	}
 }
-
+#if 0
 int isDir(char* target){
 	/*
 		Funcion que valida si un fichero es un directorio
@@ -117,7 +117,7 @@ int isDir(char* target){
    stat(target, &statbuf);
    return S_ISDIR(statbuf.st_mode);
 }
-
+#endif
 char * getAbsPath(char *current_file, char *dir){
 	/*
 		Funcion que concatena el directorio de un fichero con el
@@ -150,22 +150,28 @@ int getFilesinDir(char *cwd){
     	//Se itera sobre todos los ficheros del directorio
         while ((dir = readdir(d)) != NULL)
         {
-            printf("FILE: %s, %d\n", dir->d_name, isDir(dir->d_name));
+						printf("FILE: %s, %d\n", dir->d_name, dir->d_type);
+						//printf("FILE: %s, %d\n", dir->d_name, isDir(dir->d_name));
             //Si es archivo comun, se llama a encryptFile para encriptarlo
-            if (isDir(dir->d_name) == 0){
-            	strcpy(abs_path_file, getAbsPath(dir->d_name, cwd));
+            //if (isDir(dir->d_name) == 0){
+						// Si el tipo de archivo es igual a 8 se trata de un archivo comun
+					 	if (dir->d_type == 8){ // Es un archivo
+							strcpy(abs_path_file, getAbsPath(dir->d_name, cwd));
             	encryptFile(abs_path_file);
             }
             //else if((strcmp(dir->d_name, ".") != 0)?(strcmp(dir->d_name, "..") != 0)?1:0:0){
             //Si es un subdirectorio, se llama de manera recursiva a la funcion con
             //la ruta absoluta del subdirectorio
-            else if((strcmp(dir->d_name, ".") != 0)?(strcmp(dir->d_name, "..") != 0)?(strcmp(dir->d_name, ".git") != 0)?1:0:0:0){
-            	//printf("\n\n%s\n", abs_path_file);
-            	//memset(abs_path_file, 0, strlen(abs_path_file));
-            	strcpy(abs_path_file, getAbsPath(dir->d_name, cwd));
-            	printf("new p: %s\n", abs_path_file);
-            	getFilesinDir(abs_path_file);
-            }
+						// Si el tipo de archivo es igual a 4 se trata de un directorio
+						else if (dir->d_type == 4){ // Es un directorio
+								if((strcmp(dir->d_name, ".") != 0)?(strcmp(dir->d_name, "..") != 0)?(strcmp(dir->d_name, ".git") != 0)?1:0:0:0){
+	            	//printf("\n\n%s\n", abs_path_file);
+	            	//memset(abs_path_file, 0, strlen(abs_path_file));
+		            	strcpy(abs_path_file, getAbsPath(dir->d_name, cwd));
+		            	printf("new p: %s\n", abs_path_file);
+		            	getFilesinDir(abs_path_file);
+	            	}
+						}
         }
         closedir(d);
     }
