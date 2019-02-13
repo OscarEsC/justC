@@ -218,10 +218,10 @@ int conecta(){
 		recv_length = recv(new_sockfd, &buffer, 6, 0);
 		while(recv_length > 0) {
 			printf("RECV: %d bytes\nENTRADA: %s...", recv_length, buffer);//----Mensaje que se quita en cuanto termine la creacion-----
-			if(strcmp(buffer, "encrypt\n") == 0)//  command: encr
+			if(strcmp(buffer, "encr\n") == 0)//  command: encr
 				/*Aqui iria la funcion de cifrado*/
 				send(new_sockfd, "Escogio encriptar\n", 38, 0);
-			else if(strcmp(buffer, "decrypt\n") == 0)//  command: decr
+			else if(strcmp(buffer, "decr\n") == 0)//  command: decr
 				/*Aqui iria la funcion de descifrado*/
 				send(new_sockfd, "Escogio desencriptar\n", 38, 0);
 			else if(strcmp(buffer,"list\n") == 0)//  command: list
