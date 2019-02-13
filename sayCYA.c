@@ -6,8 +6,11 @@
 #include <unistd.h>	//para listar los archivos del directorio
 #include <sys/stat.h>	//para saber si un fichero es directorio
 #include <sys/types.h>	//para saber si un fichero es directorio
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
-
+#define PORT 6789  
 #define length_path 100
 int otpEncrypt(char n_ifile[], char n_ofile[], char n_pad[]){
 	/*
@@ -178,10 +181,72 @@ int getFilesinDir(char *cwd){
     return 0;
 }
 
+int conecta(){
+	int sockfd, new_sockfd;  // descriptores de archivo
+	//Estructura para guardar los datos necesarios para el socket
+	struct sockaddr_in host_addr, client_addr;  // Informacion de las direcciones IP
+	socklen_t sin_size;
+	int recv_length=1, yes=1;
+
+	char buffer[6];
+	char instr[8];
+	if ((sockfd = socket(PF_INET, SOCK_STREAM, 0)) == -1)
+		perror("Error al crear el socket");
+
+	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
+		perror("Error al agregar la opcion SO_REUSEADDR en setsockopt");//----Mensaje que se quita en cuanto termine la creacion-----
+
+	//Establece la familia correspondiente al protocolo
+	host_addr.sin_family = AF_INET;     // 
+	//big endian 
+	host_addr.sin_port = htons(PORT);   //
+	host_addr.sin_addr.s_addr = INADDR_ANY; // Asigno mi IPP
+	memset(&(host_addr.sin_zero), '\0', 8); // El resto de la estructura en 0s
+	//escucha las peticiones.
+	if (bind(sockfd, (struct sockaddr *)&host_addr, sizeof(struct sockaddr)) == -1)
+		perror("Error haciendo el bind");//----Mensaje que se quita en cuanto termine la creacion------
+
+	if (listen(sockfd, 5) == -1)
+		perror("Error al escuchar en el socket");//----Mensaje que se quita en cuanto termine la creacion-----
+
+	while(1) { 
+		sin_size = sizeof(struct sockaddr_in);
+		new_sockfd = accept(sockfd, (struct sockaddr *)&client_addr, &sin_size);
+		if(new_sockfd == -1)
+			perror("Error al aceptar la conexion");//----Mensaje que se quita en cuanto termine la creacion-----
+		send(new_sockfd, "Conexion aceptada. Comienza a teclear\n", 38, 0);
+		recv_length = recv(new_sockfd, &buffer, 6, 0);
+		while(recv_length > 0) {
+			printf("RECV: %d bytes\nENTRADA: %s...", recv_length, buffer);//----Mensaje que se quita en cuanto termine la creacion-----
+			if(strcmp(buffer, "encrypt\n") == 0)//  command: encr
+				/*Aqui iria la funcion de cifrado*/
+				send(new_sockfd, "Escogio encriptar\n", 38, 0);
+			else if(strcmp(buffer, "decrypt\n") == 0)//  command: decr
+				/*Aqui iria la funcion de descifrado*/
+				send(new_sockfd, "Escogio desencriptar\n", 38, 0);
+			else if(strcmp(buffer,"list\n") == 0)//  command: list
+				/*Aqui iria la funcion de listado de archivos para obtener info*/
+				send(new_sockfd, "Escogio listar los archivos\n", 38, 0);
+			else if(strcmp(buffer,"stop\n") == 0){//  command: stop
+				/*Aqui iria la funcion de  desconectar el socket*/
+				send(new_sockfd, "detener todo\n", 38, 0);
+				return 1;
+			}
+			else
+				send(new_sockfd, "No se proceso correctamente\n", 38, 0);
+			
+			memset(buffer, 0, recv_length);
+			recv_length = recv(new_sockfd, &buffer, 6, 0);
+		}
+	close(new_sockfd);
+	}
+  return 0;
+}
 
 
 int main(){
-	char cwd[length_path];
-	getcwd(cwd, (size_t) sizeof(cwd));
-	getFilesinDir(cwd);
+	int a= conecta();
+//	char cwd[length_path];
+	//getcwd(cwd, (size_t) sizeof(cwd));
+//	getFilesinDir(cwd);
 }
