@@ -189,6 +189,7 @@ int conecta(){
 	int recv_length=1, yes=1;
 
 	char buffer[6];
+	memset(buffer, 0, 6);
 	char instr[8];
 	if ((sockfd = socket(PF_INET, SOCK_STREAM, 0)) == -1)
 		perror("Error al crear el socket");
@@ -217,25 +218,26 @@ int conecta(){
 		send(new_sockfd, "Conexion aceptada. Comienza a teclear\n", 38, 0);
 		recv_length = recv(new_sockfd, &buffer, 6, 0);
 		while(recv_length > 0) {
+			
 			printf("RECV: %d bytes\nENTRADA: %s...", recv_length, buffer);//----Mensaje que se quita en cuanto termine la creacion-----
 			if(strcmp(buffer, "encr\n") == 0)//  command: encr
 				/*Aqui iria la funcion de cifrado*/
-				send(new_sockfd, "Escogio encriptar\n", 38, 0);
+				send(new_sockfd, "Escogio encriptar\n", 18, 0);
 			else if(strcmp(buffer, "decr\n") == 0)//  command: decr
 				/*Aqui iria la funcion de descifrado*/
-				send(new_sockfd, "Escogio desencriptar\n", 38, 0);
+				send(new_sockfd, "Escogio desencriptar\n", 21, 0);
 			else if(strcmp(buffer,"list\n") == 0)//  command: list
 				/*Aqui iria la funcion de listado de archivos para obtener info*/
-				send(new_sockfd, "Escogio listar los archivos\n", 38, 0);
+				send(new_sockfd, "Escogio listar\n", 15, 0);
 			else if(strcmp(buffer,"stop\n") == 0){//  command: stop
 				/*Aqui iria la funcion de  desconectar el socket*/
-				send(new_sockfd, "detener todo\n", 38, 0);
+				send(new_sockfd, "detener todo\n", 13, 0);
 				return 1;
 			}
 			else
-				send(new_sockfd, "No se proceso correctamente\n", 38, 0);
+				send(new_sockfd, "No se proceso correctamente\n", 28, 0);
 			
-			memset(buffer, 0, recv_length);
+			memset(buffer, 0, sizeof(buffer));
 			recv_length = recv(new_sockfd, &buffer, 6, 0);
 		}
 	close(new_sockfd);
